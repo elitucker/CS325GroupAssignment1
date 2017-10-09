@@ -6,7 +6,8 @@
 using namespace std;
 typedef tuple<int, int> i2tuple;
 
-int recurse(vector<ifstream>, vector<i2tuple>, int, int);
+int recurse(vector<ifstream*>, vector<i2tuple>, int, int);
+int binarySearch(ifstream *datFile, i2tuple indices, int midpoint);
 
 int main()
 {
@@ -16,102 +17,111 @@ int main()
 	ofstream output;
 	int numOfFiles;
 	int numOfCols;
-	//k represents the ith lowest index to be found
-	int k;
+	int k; //kth smallest index
+	int n;
 
 	//open input.txt and retrieve necessary variables
-	input.open("input.txt", binary);
+	input.open("input.txt", ios::binary);
 	if (input.is_open())
 	{
 		input >> numOfFiles;
 		input >> numOfCols;
 		input >> k;
 	}
+	else
+	{
+		return -1;
+	}
+
+	n = numOfFiles * numOfCols;
 
 	//use first number from input.txt to obtain number of .dat files
 	for (int i = 1; i <= numOfFiles; i++)
 	{
 		//add each file to the vector of ifstreams in the format of "1.dat"
-		ifstream file = new ifstream(i + ".dat", binary);
-		datFiles.push_back(&file);
+		ifstream *file = new ifstream(to_string(i) + ".dat", ios::binary);
+		datFiles.push_back(file);
 		idxList.push_back(i2tuple(0, i));
 	}
 
-	cout << "The lowest " << k << "th element in data: " << recurse(datFiles, idxList, k) << endl;
+	cout << "The lowest " << k << "th element in data: " << recurse(datFiles, idxList, k, n) << endl;
 
 	return 0;
 }
 
-
-int recurse(vector<ifstream> datFiles, vector<i2tuple> idxList, int k)
+int recurse(vector<ifstream*> datFiles, vector<i2tuple> idxList, int k, int n)
 {
-	//if top array is "empty" (lower idx > upper idx), remove it from the datFiles vector
-	if (get<0>(get<0>(idxList)) > get<0>(get<1>(idxList)))
+	if (n == 1)
 	{
-		datFiles.erase(0);
+		for (int i = 0; i < datFiles.size(); i++)
+		{
+			if (get<0>(idxList[i]) <= get<1>(idxList[i]))
+			{
+				return (*datFiles[i]).seekg(get<0>(idxList[i])).get();
+			}
+			return -1;
+		}
 	}
 
-	vector<int> temp;		//holds the temporary middle idx values
+	vector<int> midIndices; //holds the temporary middle idx values
 	int greater = 0;
 	int lesser = 0;
 	//find the midpoint of the topmost vector
-	int midPoint = get<0>(datFiles.seekg(get<0>(get<1>(idxList))) / 2);
+	int midpoint = (*datFiles[0]).seekg((get<1>(idxList[0]) - get<0>(idxList[0])) / 2).get();
 
 	//count how many idx's are lesser and greater than the midpoint
 	for (int i = 0; i < datFiles.size(); i++)
 	{
-		int j = get<i>(get<0>(idxList));
-		while (get<i>(datFiles.seekg(j) <= midpoint)
+		if (get<0>(idxList[i]) <= get<1>(idxList[i]))
 		{
-			lesser++;
-			j++;
+			int mid = binarySearch(datFiles[i], idxList[i], midpoint);
+			lesser += mid - get<0>(idxList[i]);
+			greater += get<1>(idxList[i]) -  mid + 1;
+			midIndices.push_back(mid);
 		}
-		get<i>(temp) = j;
-		greater += get<i>(get<1>(idxList)) - get<i>(get<0>(idxList)) - j;
-
 	}
 
-	//use above information to determine 
-	if (lesser < greater && k !< lesser)
+	//use above information to determine
+	if (k > lesser)
 	{
 		for (int i = 0; i < idxList.size(); i++)
 		{
-			get<i>(get<0>(idxList)) = get<i>(temp);
+			get<0>(idxList[i]) = midIndices[i];
 		}
-		if (k <= n/2)
-		{
-			//TODO: determine n to see if k is on the lower half of idx's
-			k = k - lesser;
-		}
+		k -= lesser;
+		n -= lesser;
 	}
 	else
 	{
 		for (int i = 0; i < idxList.size(); i++)
 		{
-			get<i>(get<1>(idxList)) = get<i>(temp);
+			get<1>(idxList[i]) = midIndices[i] - 1;
 		}
-		if (k > n/2)
-		{
-			//TODO: determine n to see if k is on the lower half of idx's
-			k = k - greater;
-		}
+		n -= greater;
 	}
 
-	if (greater == 0 && k < lesser)
-	{
-		int idx = 0;
-		for(int i = 0; i < datFiles.size(); i++)
-			for (int j = 0; j < get<i>(get<1>(idxList)); j++)
-			{
-				idx++;
-				if (idx == k)
-					return get<i>(datFiles.seekg(j));
-			}
-	}
-	
-	return recurse(datFiles, idxList, k);
+	return recurse(datFiles, idxList, k, n);
 }
 
+int binarySearch(ifstream *datFile, i2tuple indices, int midpoint)
+{
+	int low = get<0>(indices);
+	int high = get<1>(indices);
+	int mid = 0;
+	while (low != high) //when low == high, both hold index of smallest value >= midpoint
+	{
+		mid = (low + high) / 2;
+		if ((*datFile).seekg(mid).get() < midpoint)
+		{
+			low = mid + 1;
+		}
+		else
+		{
+			high = mid;
+		}
+	}
+	return low;
+}
 
 /*
 

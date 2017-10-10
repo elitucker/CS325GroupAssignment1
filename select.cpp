@@ -1,7 +1,10 @@
 #include<iostream>
+#include<sstream>
 #include<fstream>
 #include<vector>
 #include<tuple>
+
+#define BYTE_COUNT 4
 
 using namespace std;
 typedef tuple<int, int> i2tuple;
@@ -21,16 +24,30 @@ int main()
 	int n;
 
 	//open input.txt and retrieve necessary variables
-	input.open("input.txt", ios::binary);
+	input.open("input.txt");
 	if (input.is_open())
 	{
-		input >> numOfFiles;
-		input >> numOfCols;
-		input >> k;
+		string line;
+		if (!getline(input, line))
+		{
+			cout << "Invalid input format" << endl;
+			return 1;
+		}
+
+		istringstream stream(line);
+		string value;
+
+		getline(stream, value, ',');
+		numOfFiles = atoi(value.c_str());
+		getline(stream, value, ',');
+		numOfCols = atoi(value.c_str());
+		getline(stream, value, ',');
+		k = atoi(value.c_str());
 	}
 	else
 	{
-		return -1;
+		cout << "No input file(s)" << endl;
+		return 1;
 	}
 
 	n = numOfFiles * numOfCols;
@@ -41,7 +58,7 @@ int main()
 		//add each file to the vector of ifstreams in the format of "1.dat"
 		ifstream *file = new ifstream(to_string(i) + ".dat", ios::binary);
 		datFiles.push_back(file);
-		idxList.push_back(i2tuple(0, i));
+		idxList.push_back(i2tuple(0, numOfCols - 1));
 	}
 
 	cout << "The lowest " << k << "th element in data: " << recurse(datFiles, idxList, k, n) << endl;
@@ -51,13 +68,17 @@ int main()
 
 int recurse(vector<ifstream*> datFiles, vector<i2tuple> idxList, int k, int n)
 {
+
+	int midpoint;
+
 	if (n == 1)
 	{
 		for (int i = 0; i < datFiles.size(); i++)
 		{
 			if (get<0>(idxList[i]) <= get<1>(idxList[i]))
 			{
-				return (*datFiles[i]).seekg(get<0>(idxList[i])).get();
+				(*datFiles[i]).seekg(get<0>(idxList[i]) * BYTE_COUNT).read((char *)&midpoint, BYTE_COUNT);
+				return midpoint;
 			}
 			return -1;
 		}
@@ -66,8 +87,9 @@ int recurse(vector<ifstream*> datFiles, vector<i2tuple> idxList, int k, int n)
 	vector<int> midIndices; //holds the temporary middle idx values
 	int greater = 0;
 	int lesser = 0;
+
 	//find the midpoint of the topmost vector
-	int midpoint = (*datFiles[0]).seekg((get<1>(idxList[0]) - get<0>(idxList[0])) / 2).get();
+	(*(datFiles[0])).seekg(((get<1>(idxList[0]) - get<0>(idxList[0])) / 2) * BYTE_COUNT).read((char *)&midpoint, BYTE_COUNT);
 
 	//count how many idx's are lesser and greater than the midpoint
 	for (int i = 0; i < datFiles.size(); i++)
